@@ -1,0 +1,23 @@
+# ---- ControlCenter notes (synced separately and uploaded to the portal).
+PROJECT.md
+HISTORY.md
+
+# ---- Secrets: API keys/tokens never go in the repo (DPAPI store only).
+.env
+.env.*
+*.secret
+secrets/
+cred_*.xml
+
+# ---- Node
+node_modules/
+dist/
+
+# ---- Python
+__pycache__/
+*.pyc
+.venv/
+
+# ---- Editor / OS
+.vscode/
+Thumbs.db
