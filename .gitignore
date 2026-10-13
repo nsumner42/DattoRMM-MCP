@@ -21,3 +21,6 @@ __pycache__/
 # ---- Editor / OS
 .vscode/
 Thumbs.db
+
+# ---- Release snapshots (synced by rclone, not committed)
+versions/
