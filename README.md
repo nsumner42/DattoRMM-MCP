@@ -13,15 +13,16 @@ One repo, one server per product, shared code for credentials, rate limiting and
 
 ## Credentials
 
-No secrets live in this repo. Each server loads its API credential at startup from the local
-DPAPI-encrypted store (`C:\AIProjects\secrets\cred_<Name>.xml`, written by PowerShell
-`Export-Clixml`), which only the Windows account that saved it, on that machine, can decrypt.
-The store name is `<Prefix>-<COMPUTERNAME>`, e.g. `DattoRmmApi-BABYBEAR2`
-(username = API key, password = API secret). Save one in your own PowerShell window:
+No secrets live in this repo. Each server loads its API credential from the encrypted store in
+`C:\AIProjects\secrets` through `Get-SharedCredential` (root `Credential.ps1`, run in Windows
+PowerShell): shared keys (`cms_<Name>.txt`, encrypted to each computer's own certificate, so
+every computer can read them), falling back to an old per-computer DPAPI `cred_<Name>.xml`.
+The store name is the prefix, e.g. `DattoRmmApi` (username = API key, password = API secret);
+`<Prefix>-<COMPUTERNAME>` still works. Save one in your own PowerShell window:
 
 ```powershell
 . C:\AIProjects\Credential.ps1
-Save-SharedCredential -Name "DattoRmmApi-$env:COMPUTERNAME" -Credential (Get-Credential -UserName '<API key>' -Message 'Datto RMM API secret')
+Save-SharedCredential -Name 'DattoRmmApi' -Credential (Get-Credential -UserName '<API key>' -Message 'Datto RMM API secret')
 ```
 
 ## Writes
