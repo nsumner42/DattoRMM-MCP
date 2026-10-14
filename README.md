@@ -7,7 +7,7 @@ One repo, one server per product, shared code for credentials, rate limiting and
 |---|---|
 | Datto RMM (`msp-mcp-datto`) | working: reads + guarded writes |
 | ThreatLocker (`msp-mcp-threatlocker`) | working: reads + guarded allow-by-hash |
-| Mimecast (`msp-mcp-mimecast`) | working: read-only |
+| Mimecast (`msp-mcp-mimecast`) | working: reads; guarded release / permit / greylisting bypass |
 | Asset Panda (`msp-mcp-assetpanda`) | working: read-only |
 | CrowdStrike Falcon | use the official [falcon-mcp](https://github.com/CrowdStrike/falcon-mcp) |
 
@@ -82,16 +82,31 @@ secret) and `AssetPanda-ApiUser-<COMPUTERNAME>` (the Asset Panda user the API ac
 password). The user's Asset Panda rights limit what the API can do. Limit ~400 calls / 3 min per IP;
 a full inventory read (`asset_counts`, `duplicate_assets`) takes ~47 calls and about a minute.
 
-## Mimecast tools (read-only)
+## Mimecast tools
 
-`account_summary`, `search_messages` (message tracking), `get_message`, `held_messages`,
-`url_clicks`, `attachment_logs`, `impersonation_logs`, `audit_events`.
+Reads: `account_summary`, `search_messages` (message tracking), `get_message`, `held_messages`,
+`url_clicks`, `attachment_logs`, `impersonation_logs`, `audit_events`, `greylisting_policies`,
+`greylist_report` (who is delayed or lost by greylisting, per sender domain, with any existing
+bypass, IP-restricted ones included), `write_status`.
+
+Writes (all dry run by default, need `MSP_MCP_MIMECAST_WRITES=1`):
+- `release_held_messages`: by search (sender / recipient / subject) or ids, max 10 at a time.
+- `permit_sender`: managed sender permit/block for one recipient (skips spam checks,
+  greylisting and IP reputation for that pair).
+- `bypass_greylisting`: greylisting policy `no_action` for one sender domain or address, to
+  everyone, no end date (same shape as the hand-made ones). Refuses free-mail domains and
+  duplicates.
+- `delete_greylisting_policy`.
 
 Credential: `MimecastApi`, an API 2.0 application (username = client ID, password = client
 secret). API 1.0 keys (access key + secret key, HMAC) do not work. All calls go to
 `https://api.services.mimecast.com` whatever the account's region. The application's role
-limits what it can read: give it read-only permissions for message tracking, held messages,
-URL / attachment / impersonation protection logs and audit logs.
+decides what works. Reads: Gateway | Tracking, Monitoring | Held / URL / Attachment /
+Impersonation Protection, Account | Logs, Gateway | Policies (Read). Writes add
+Account | Monitoring | Held | Edit, Gateway | Managed Senders | Edit, Gateway | Policies | Edit.
+Official OpenAPI specs: the developer portal's data API,
+`https://developer.services.mimecast.com/portals/api/sites/mimecast-prod-apigee-developer/liveportal/apis/<apiId>/download_spec`
+(`cloudgateway`, `policymanagement`, ...).
 
 ## ThreatLocker tools
 

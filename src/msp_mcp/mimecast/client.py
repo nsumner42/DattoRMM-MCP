@@ -76,8 +76,10 @@ class MimecastClient:
         return await self._sign_in()
 
     async def call(self, path: str, data: dict | list | None = None, *,
-                   page_size: int | None = None, page_token: str | None = None) -> dict:
-        """One POST. Returns the whole reply ({meta, data, fail}); raises on HTTP or fail[] errors."""
+                   page_size: int | None = None, page_token: str | None = None,
+                   raise_fail: bool = True) -> dict:
+        """One POST. Returns the whole reply ({meta, data, fail}); raises on HTTP errors and, unless
+        raise_fail=False (batch writes where some items can fail), on a non-empty fail[]."""
         # No filter = "data": [] (get-account rejects [{}] with err_validation_null).
         body: dict[str, Any] = {"data": data if isinstance(data, list) else ([data] if data else [])}
         if page_size or page_token:
@@ -118,10 +120,42 @@ class MimecastClient:
                 raise MimecastError(f"POST {path}: HTTP {r.status_code} {detail}{hint}")
             if not isinstance(j, dict):
                 raise MimecastError(f"POST {path}: unexpected reply {r.text[:200]}")
-            if j.get("fail"):
+            if j.get("fail") and raise_fail:
                 raise MimecastError(f"POST {path}: {_fail_text(j['fail'])}")
             return j
         raise MimecastError(f"POST {path}: gave up after repeated 429/5xx responses")
+
+    async def rest(self, method: str, path: str, *, params: dict | None = None,
+                   json: Any = None) -> Any:
+        """The newer REST-style endpoints (/policy-management/..., /email/...): plain JSON in and
+        out, errors as {"error": [{code, message}]} with a 4xx status."""
+        refreshed = False
+        for attempt in range(1, 5):
+            await self._limiter.acquire()
+            token = await self._bearer()
+            r = await self._http.request(method, f"{self.base}{path}", params=params, json=json,
+                                         headers={"Authorization": f"Bearer {token}",
+                                                  "Accept": "application/json"})
+            if r.status_code == 401 and not refreshed:
+                self._token = None
+                refreshed = True
+                continue
+            if (r.status_code == 429 or r.status_code >= 500) and attempt < 4:
+                await asyncio.sleep(5 * attempt + random.uniform(0, 2))
+                continue
+            try:
+                j = r.json() if r.content else None
+            except ValueError:
+                j = None
+            if r.status_code >= 400:
+                errs = (j or {}).get("error") or (j or {}).get("errors") if isinstance(j, dict) else None
+                detail = "; ".join(f"{e.get('code')}: {e.get('message')}" for e in errs
+                                   if isinstance(e, dict)) if isinstance(errs, list) else r.text[:300]
+                hint = (" (the API application's role is missing the permission for this endpoint)"
+                        if r.status_code == 403 else "")
+                raise MimecastError(f"{method} {path}: HTTP {r.status_code} {detail}{hint}")
+            return j
+        raise MimecastError(f"{method} {path}: gave up after repeated 429/5xx responses")
 
     async def call_all(self, path: str, data: dict | None = None, *, rows_key: str | None = None,
                        max_items: int = 500) -> tuple[list[dict], dict]:
