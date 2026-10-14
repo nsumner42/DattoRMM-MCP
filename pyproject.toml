@@ -1,6 +1,6 @@
 [project]
 name = "msp-mcp"
-version = "0.2.2"
+version = "0.3.0"
 description = "MCP servers for the MSP stack: Datto RMM, ThreatLocker, Mimecast, Asset Panda"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -13,6 +13,7 @@ dependencies = [
 msp-mcp-datto = "msp_mcp.datto.server:main"
 msp-mcp-assetpanda = "msp_mcp.assetpanda.server:main"
 msp-mcp-threatlocker = "msp_mcp.threatlocker.server:main"
+msp-mcp-mimecast = "msp_mcp.mimecast.server:main"
 
 [build-system]
 requires = ["hatchling"]

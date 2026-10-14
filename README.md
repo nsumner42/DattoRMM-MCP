@@ -7,7 +7,7 @@ One repo, one server per product, shared code for credentials, rate limiting and
 |---|---|
 | Datto RMM (`msp-mcp-datto`) | working: reads + guarded writes |
 | ThreatLocker (`msp-mcp-threatlocker`) | working: reads + guarded allow-by-hash |
-| Mimecast | planned |
+| Mimecast (`msp-mcp-mimecast`) | working: read-only |
 | Asset Panda (`msp-mcp-assetpanda`) | working: read-only |
 | CrowdStrike Falcon | use the official [falcon-mcp](https://github.com/CrowdStrike/falcon-mcp) |
 
@@ -45,6 +45,10 @@ claude mcp add datto --scope user `
   -e MSP_MCP_DATTO_WRITES=1 `
   -- uv --directory C:\AIProjects\MSP-MCP run --no-sync python -m msp_mcp.datto.server
 
+claude mcp add mimecast --scope user `
+  -e "UV_PROJECT_ENVIRONMENT=$env:LOCALAPPDATA\MSP-MCP\venv" `
+  -- uv --directory C:\AIProjects\MSP-MCP run --no-sync python -m msp_mcp.mimecast.server
+
 claude mcp add assetpanda --scope user `
   -e "UV_PROJECT_ENVIRONMENT=$env:LOCALAPPDATA\MSP-MCP\venv" `
   -- uv --directory C:\AIProjects\MSP-MCP run --no-sync python -m msp_mcp.assetpanda.server
@@ -77,6 +81,17 @@ Credentials: `AssetPanda-<COMPUTERNAME>` (API app: username = client ID, passwor
 secret) and `AssetPanda-ApiUser-<COMPUTERNAME>` (the Asset Panda user the API acts as: email +
 password). The user's Asset Panda rights limit what the API can do. Limit ~400 calls / 3 min per IP;
 a full inventory read (`asset_counts`, `duplicate_assets`) takes ~47 calls and about a minute.
+
+## Mimecast tools (read-only)
+
+`account_summary`, `search_messages` (message tracking), `get_message`, `held_messages`,
+`url_clicks`, `attachment_logs`, `impersonation_logs`, `audit_events`.
+
+Credential: `MimecastApi`, an API 2.0 application (username = client ID, password = client
+secret). API 1.0 keys (access key + secret key, HMAC) do not work. All calls go to
+`https://api.services.mimecast.com` whatever the account's region. The application's role
+limits what it can read: give it read-only permissions for message tracking, held messages,
+URL / attachment / impersonation protection logs and audit logs.
 
 ## ThreatLocker tools
 
